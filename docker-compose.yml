@@ -1,0 +1,75 @@
+# ─────────────────────────────────────────────────────────────
+# Agendalix · docker-compose
+#
+# Diseñado para convivir con otras webs en el mismo VPS:
+#   • Container name único:     agendalix
+#   • Puerto host único:        3010  (cambia AGENDALIX_PORT si choca)
+#   • Sólo expone a 127.0.0.1   → nginx del host hace el proxy
+#   • Bind mount de .env.local  → permite editar claves sin rebuild
+#   • Bind mount de ./data      → persiste data/admin.json (TOTP admin)
+#   • Logs en ./logs            → fáciles de tailear con `docker compose logs`
+#
+# Comandos:
+#   docker compose up -d --build       # primer despliegue
+#   docker compose pull && docker compose up -d --build   # actualizaciones
+#   docker compose logs -f agendalix
+# ─────────────────────────────────────────────────────────────
+
+services:
+  agendalix:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL}
+        NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY}
+    image: agendalix:latest
+    container_name: agendalix
+    restart: unless-stopped
+
+    # Sólo accesible desde localhost del host. Nginx hace el TLS.
+    ports:
+      - "127.0.0.1:${AGENDALIX_PORT:-3010}:3000"
+
+    env_file:
+      - .env.local
+
+    # Bind-mounts:
+    #   .env.local → permite editar claves sin rebuild.
+    #   data/      → persiste data/admin.json (TOTP + bcrypt del admin) entre
+    #                despliegues. Crear antes del primer up: `mkdir -p data`.
+    volumes:
+      - ./.env.local:/app/.env.local:rw
+      - ./data:/app/data:rw
+      - ./logs:/app/logs
+
+    # Límites razonables para no comerse la RAM del VPS compartido.
+    mem_limit: 512m
+    mem_reservation: 256m
+
+    # DNS explícitos para evitar EAI_AGAIN justo tras el arranque.
+    dns:
+      - 8.8.8.8
+      - 1.1.1.1
+
+    # Network aislada para esta web → no interfiere con otras stacks.
+    networks:
+      - agendalix-net
+
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O-", "http://127.0.0.1:3000/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+networks:
+  agendalix-net:
+    name: agendalix-net
+    driver: bridge

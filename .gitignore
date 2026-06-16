@@ -1,0 +1,59 @@
+# Dependencies
+node_modules/
+.next/
+out/
+
+# Environment & secrets
+.env
+.env.local
+.env.*.local
+*.env.bak*
+*.pem
+*.key
+*.p12
+*.crt
+*.cer
+
+# Service account credentials
+*service-account*.json
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Testing
+coverage/
+.nyc_output/
+
+# Misc
+*.bak
+*.bak.*
+*.orig
+*.patch
+*.diff
+
+# Build artifacts
+*.tsbuildinfo
+
+# Data
+.data/
+data/

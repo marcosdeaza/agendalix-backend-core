@@ -1,0 +1,296 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg: #0a0a0a;
+  --purple: #2E8F66;
+}
+
+* {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+html,
+body {
+  background: var(--bg);
+  color: #ededed;
+  font-feature-settings: "cv11", "ss01", "ss03";
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+::selection {
+  background: rgba(46, 143, 102, 0.35);
+  color: #fff;
+}
+
+/* Subtle scrollbar for dark theme */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: #0a0a0a;
+}
+::-webkit-scrollbar-thumb {
+  background: #1e1e1e;
+  border-radius: 10px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #2a2a2a;
+}
+
+/* Typography defaults */
+body {
+  font-family: var(--font-inter), Inter, system-ui, sans-serif;
+  font-weight: 400;
+  font-size: 15px;
+  line-height: 1.7;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-weight: 500;
+  line-height: 1.15;
+  letter-spacing: -0.015em;
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Inputs numéricos sin flechas nativas (entrada limpia, se escribe tal cual) */
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type="number"] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+/* Para campos compuestos: el contenedor marca el foco, el input interno no dibuja anillo */
+.no-focus-ring:focus,
+.no-focus-ring:focus-visible {
+  outline: none !important;
+}
+
+/* Utility — hairline border */
+.hairline {
+  border-width: 0.5px;
+}
+
+/* ── Landing v2: superficie clara "papel" ─────────────────────────── */
+.surface-light {
+  background-color: #faf7f0;
+  color: #201c12;
+}
+.surface-light ::selection {
+  background: rgba(30, 107, 79, 0.18);
+  color: #14503a;
+}
+.surface-light input:focus-visible,
+.surface-light textarea:focus-visible,
+.surface-light button:focus-visible,
+.surface-light a:focus-visible {
+  outline: 2px solid rgba(30, 107, 79, 0.55);
+  outline-offset: 2px;
+}
+
+/* Halo cálido del hero sobre papel */
+.glow-hero {
+  background:
+    radial-gradient(ellipse 720px 420px at 50% 32%, rgba(30, 107, 79, 0.09) 0%, transparent 70%),
+    radial-gradient(ellipse 500px 300px at 80% 12%, rgba(217, 145, 43, 0.10) 0%, transparent 70%);
+}
+
+.glow-cta {
+  background: radial-gradient(
+    ellipse 800px 300px at 50% 50%,
+    rgba(30, 107, 79, 0.10) 0%,
+    transparent 70%
+  );
+}
+
+/* Trama de puntos sutil, estilo papel impreso */
+.dotted-paper {
+  background-image: radial-gradient(rgba(32, 28, 18, 0.07) 1px, transparent 1px);
+  background-size: 22px 22px;
+}
+
+/* Fondo del chat estilo WhatsApp real */
+.wa-chat-bg {
+  background-color: #efe7db;
+  background-image: radial-gradient(rgba(32, 28, 18, 0.045) 1px, transparent 1px);
+  background-size: 18px 18px;
+}
+
+/* Subrayado a mano alzada para palabras clave del hero */
+.hand-underline {
+  position: relative;
+  white-space: nowrap;
+}
+.hand-underline > svg {
+  position: absolute;
+  left: -2%;
+  bottom: -0.18em;
+  width: 104%;
+  height: 0.30em;
+  overflow: visible;
+}
+
+/* Button reset */
+button {
+  font-family: inherit;
+  font-size: inherit;
+  color: inherit;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+}
+
+/* Input reset */
+input,
+textarea {
+  font-family: inherit;
+  color: inherit;
+  background: transparent;
+  border: none;
+  outline: none;
+}
+
+input:focus-visible,
+textarea:focus-visible,
+button:focus-visible,
+a:focus-visible {
+  outline: 1px solid rgba(46, 143, 102, 0.6);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Ticker track doubled — seamless scroll */
+@keyframes ticker-scroll {
+  from { transform: translate3d(0, 0, 0); }
+  to   { transform: translate3d(-50%, 0, 0); }
+}
+.ticker-track {
+  display: flex;
+  width: max-content;
+  animation: ticker-scroll 35s linear infinite;
+  will-change: transform;
+}
+.ticker-track:hover { animation-play-state: paused; }
+
+/* Horizontal scroll snap (mobile carousel) */
+.snap-x-mandatory {
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+}
+
+.snap-start {
+  scroll-snap-align: start;
+}
+
+/* Skeleton shimmer */
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    #141414 0%,
+    #1f1f1f 50%,
+    #141414 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.4s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* Phone frame drop-shadow */
+.phone-shadow {
+  box-shadow:
+    0 40px 80px -20px rgba(46, 143, 102, 0.15),
+    0 0 0 1px #1e1e1e inset;
+}
+
+/* Sanitized mail HTML — keep it readable inside dark theme */
+.mail-html {
+  word-break: break-word;
+}
+.mail-html a {
+  color: #7FC9A6;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.mail-html a:hover {
+  color: #fff;
+}
+.mail-html p {
+  margin: 0 0 1em 0;
+}
+.mail-html img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 4px;
+  display: inline-block;
+}
+.mail-html blockquote {
+  margin: 1em 0;
+  padding-left: 1em;
+  border-left: 2px solid #2a2a2a;
+  color: #888;
+}
+.mail-html pre,
+.mail-html code {
+  background: #111;
+  border: 0.5px solid #1e1e1e;
+  border-radius: 4px;
+  padding: 0.15em 0.4em;
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 0.9em;
+}
+.mail-html pre {
+  padding: 0.8em 1em;
+  overflow: auto;
+}
+.mail-html h1,
+.mail-html h2,
+.mail-html h3 {
+  margin: 1.2em 0 0.5em;
+}
+.mail-html ul,
+.mail-html ol {
+  padding-left: 1.25em;
+  margin: 0.5em 0 1em;
+}
+.mail-html table {
+  border-collapse: collapse;
+  max-width: 100%;
+}
+.mail-html td,
+.mail-html th {
+  border: 0.5px solid #1e1e1e;
+  padding: 6px 10px;
+}
+
+.line-clamp-1 {
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
