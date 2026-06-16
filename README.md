@@ -72,10 +72,11 @@ Create the `data/` directory before first run — it persists the admin TOTP sec
 
 - Container port bound to `127.0.0.1` only. No direct external access.
 - TLS 1.3 enforced by Nginx. HSTS max-age: 2 years.
-- Supabase RLS policies on every table. Service role key never sent to frontend.
-- Admin dashboard protected by TOTP MFA.
-- API routes validate input with Zod schemas.
-- Static Next.js chunks cached with `immutable` headers.
+- Headers: X-Content-Type-Options nosniff, X-Frame-Options SAMEORIGIN, Referrer-Policy, Permissions-Policy.
+- Database: Supabase RLS policies on every table. Service role key never sent to frontend.
+- Auth: Supabase Auth for users; custom TOTP MFA for admin dashboard.
+- Rate limiting: custom middleware on API routes; Zod validation on all public endpoints.
+- Static assets: Next.js `_next/static` chunks cached with `immutable` headers.
 
 ---
 
