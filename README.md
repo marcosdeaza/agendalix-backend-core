@@ -1,3 +1,5 @@
+![Agendalix Landing](https://raw.githubusercontent.com/marcosdeaza/agendalix-backend-core/main/.github/assets/screenshot-panel.png)
+
 # agendalix-backend-core
 
 **Production backend for [agendalix.com](https://agendalix.com)**  
