@@ -1,92 +1,148 @@
 # agendalix-backend-core
 
-Automated B2B scheduling engine. Next.js application handling appointment booking, real-time WhatsApp communication, and subscription billing.
+> **The scheduling engine that turns WhatsApp conversations into confirmed appointments. Built for service businesses that move fast.**
 
-## System Architecture
+Agendalix automates the entire booking lifecycle — from first customer message to calendar block, reminder, and payment collection. It runs as a single Next.js application on a locked-down Docker container, reverse-proxied by Nginx, with Supabase as the single source of truth.
+
+This repository contains the **backend core** that powers [agendalix.com](https://agendalix.com).
+
+---
+
+## What It Solves
+
+- **Conversation-to-appointment**: Customers book via WhatsApp; the system parses intent, checks availability, and writes the slot to the database.
+- **No-show prevention**: Automated reminder cron jobs fire 24h and 2h before each appointment.
+- **Revenue recovery**: Failed payments and abandoned carts trigger targeted WhatsApp follow-ups.
+- **Multi-tenant dashboard**: Business owners manage schedules, clients, and staff from a single panel with real-time updates.
+- **Subscription billing**: Stripe plans (Basic / Pro / Clínica) with self-service portal and webhook-driven entitlement sync.
+
+---
+
+## Architecture at a Glance
 
 ```
-┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
-│   Nginx (443)   │────▶│  Next.js (3000) │────▶│   Supabase      │
-│  Reverse Proxy  │     │   App Router    │     │  PostgreSQL     │
-└─────────────────┘     └─────────────────┘     └─────────────────┘
-         │
-         ▼
-┌─────────────────┐     ┌─────────────────┐
-│  Evolution API  │     │    DeepSeek     │
-│  (WhatsApp)     │     │   (AI Agent)    │
-└─────────────────┘     └─────────────────┘
+┌─────────────────────────────────────────────────────────────┐
+│                        Nginx (443/80)                       │
+│        TLS 1.3 · HSTS · gzip · immutable cache headers      │
+└──────────────────┬──────────────────────────────────────────┘
+                   │
+                   ▼
+┌─────────────────────────────────────────────────────────────┐
+│                  Next.js App (3000)                       │
+│  ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌────────┐ │
+│  │ Landing │ │  Panel  │ │  Admin  │ │   API   │ │  Cron  │ │
+│  │  pages  │ │  pages  │ │  pages  │ │ routes  │ │ routes │ │
+│  └─────────┘ └─────────┘ └─────────┘ └─────────┘ └────────┘ │
+└──────────────────┬──────────────────────────────────────────┘
+                   │
+        ┌──────────┴──────────┐
+        ▼                     ▼
+┌──────────────┐     ┌────────────────┐
+│   Supabase   │     │  Evolution API │
+│ PostgreSQL   │     │  (WhatsApp)    │
+│ + RLS        │     │                │
+│ + Realtime   │     │  DeepSeek      │
+│              │     │  (AI agent)    │
+└──────────────┘     └────────────────┘
 ```
 
-- **Frontend / API**: Next.js 14 (App Router), TypeScript, Tailwind CSS
-- **Database**: Supabase (PostgreSQL) with Row Level Security (RLS)
-- **AI**: DeepSeek API ( conversational agent for customer support)
-- **Messaging**: Evolution API (WhatsApp Business integration)
-- **Reverse Proxy**: Nginx with TLS 1.2/1.3, HSTS, strict CSP headers
+- **App layer**: Next.js 14 (App Router), TypeScript, Tailwind CSS
+- **Database**: Supabase (PostgreSQL) with Row Level Security (RLS) and realtime subscriptions
+- **Messaging**: Evolution API (WhatsApp Business) for inbound/outbound conversational flow
+- **AI**: DeepSeek API for natural-language intent parsing and customer support
+- **Reverse proxy**: Nginx with TLS 1.3, host-only Docker binding, and strict security headers
 
-## Infrastructure
+---
 
-- **Host**: Contabo VPS (164.68.102.55)
-- **Deployment**: Docker container bound to `127.0.0.1:3010`; Nginx proxies from 443
-- **TLS**: Let's Encrypt; automatic HTTP→HTTPS redirect
-- **Domain**: agendalix.com
+## Infrastructure Footprint
 
-## Security Protocols Implemented
+| Resource | Spec | Notes |
+|----------|------|-------|
+| Host | Contabo VPS `164.68.102.55` | Shared with other stacks; Agendalix runs isolated on its own Docker network |
+| Container | `agendalix:latest` | Binds to `127.0.0.1:3010` only; zero direct external exposure |
+| TLS | Let's Encrypt | Nginx handles termination; container never sees unencrypted traffic |
+| DNS | `agendalix.com` | A record → VPS; Nginx server_name match |
+| Persistence | `./data` bind mount | Stores `admin.json` (bcrypt + TOTP secret) across redeploys |
 
-- Container exposed only on localhost (no direct external port access)
-- Nginx reverse proxy with TLS 1.3 and modern cipher suite
-- Security headers: HSTS (2-year max-age), X-Content-Type-Options nosniff, X-Frame-Options SAMEORIGIN, Permissions-Policy
-- Gzip compression with `gzip_min_length 1024`
-- Next.js static chunks cached with immutable headers
-- Supabase RLS policies enforced on all tables
-- Admin dashboard protected by TOTP MFA
-- Rate limiting via custom middleware on API routes
-- Input validation via Zod schemas on all public endpoints
+---
 
-## Integrations
+## Security Protocols
 
-- **Database**: Supabase (PostgreSQL + realtime subscriptions)
-- **Payments**: Stripe (checkout, customer portal, webhook handling)
-- **Email**: Resend API (transactional emails from hola@app.agendalix.com)
-- **AI**: DeepSeek API (agent-based customer support)
-- **Messaging**: Evolution API (WhatsApp Business) + 360dialog legacy webhook
-- **Cron**: Vercel-style cron routes for reminders, recoveries, and trial management
+- **Network isolation**: Container port bound to `127.0.0.1`; only Nginx can reach it.
+- **TLS**: Nginx enforces TLS 1.3 with modern cipher suites; HSTS max-age 2 years.
+- **Headers**: X-Content-Type-Options nosniff, X-Frame-Options SAMEORIGIN, Referrer-Policy, Permissions-Policy.
+- **Database**: Supabase RLS policies on every table; service role key never exposed to frontend.
+- **Auth**: Supabase Auth for end users; custom TOTP MFA for admin dashboard.
+- **Rate limiting**: Custom middleware on API routes; Zod validation on all public endpoints.
+- **Static assets**: Next.js `_next/static` chunks cached with `immutable` headers for 1 year.
 
-## Environment Setup
+---
 
-1. Copy `.env.example` to `.env.local` and fill in all values.
-2. Ensure `data/` directory exists for persistent admin TOTP state (`mkdir -p data`).
-3. Run `docker compose up -d --build` to start the container.
-4. Configure Nginx site config (see `nginx.conf`) and reload.
+## Integration Surface
 
-## Tech Stack
+| System | Role | How It Is Controlled |
+|--------|------|----------------------|
+| **Supabase** | Database, auth, realtime | URL and anon key via env; RLS policies defined in schema |
+| **Stripe** | Checkout, portal, webhooks | Live keys via env; webhook endpoint verifies signatures |
+| **Evolution API** | WhatsApp Business gateway | Host and API key via env; webhook routes secured by verify token |
+| **DeepSeek** | AI intent parsing | API key via env; prompt templates in `lib/agent.ts` |
+| **Resend** | Transactional email | Domain-verified `hola@app.agendalix.com`; API key via env |
 
-| Layer       | Technology                          |
-|-------------|-------------------------------------|
-| App         | Next.js 14, TypeScript, Tailwind    |
-| Database    | Supabase (PostgreSQL + RLS)         |
-| Auth        | Supabase Auth + custom TOTP admin   |
-| Payments    | Stripe API                          |
-| Email       | Resend API                          |
-| AI          | DeepSeek API                        |
-| Messaging   | Evolution API (WhatsApp)            |
-| Proxy       | Nginx with TLS 1.3                  |
-| Container   | Docker (host-only port binding)     |
+---
 
-## Directory Structure
+## Getting Started
+
+```bash
+# 1. Environment
+cp .env.example .env.local
+# Edit .env.local: fill all variables
+
+# 2. Data directory
+mkdir -p data
+
+# 3. Run
+docker compose up -d --build
+
+# 4. Nginx
+cp nginx.conf /etc/nginx/sites-available/agendalix
+ln -s /etc/nginx/sites-available/agendalix /etc/nginx/sites-enabled/
+nginx -t && systemctl reload nginx
+```
+
+---
+
+## Directory Map
 
 ```
 ├── src/
-│   ├── app/           Next.js App Router (pages + API routes)
-│   ├── components/    React components (admin, panel, marketing)
-│   └── lib/           Utilities (auth, stripe, supabase, whatsapp, cron)
-├── data/              Persistent admin TOTP state
-├── logs/              Application logs
-├── supabase/          Database schema
-├── nginx.conf         Nginx site configuration
-├── docker-compose.yml Production orchestration
-└── .env.example       Required environment variables
+│   ├── app/
+│   │   ├── (marketing)/      # Landing, pricing, registration
+│   │   ├── panel/            # Business dashboard (agenda, clients, settings)
+│   │   ├── admin/            # Super-admin shell (metrics, comms, support)
+│   │   └── api/              # Route handlers (auth, cron, stripe, whatsapp)
+│   ├── components/
+│   │   ├── panel/            # Scheduling UI components
+│   │   ├── admin/            # Admin dashboard components
+│   │   └── sections/         # Marketing page sections
+│   └── lib/
+│       ├── supabase/         # Client, server, and admin clients
+│       ├── stripe.ts         # Stripe SDK initialization
+│       ├── whatsapp.ts       # Evolution API wrappers
+│       ├── cron.ts           # Cron job orchestration
+│       └── agent.ts          # DeepSeek AI prompt assembly
+├── supabase/
+│   └── schema.sql            # Full DDL with RLS policies
+├── nginx.conf                # Nginx site configuration
+├── docker-compose.yml        # Production container spec
+└── .env.example              # Required environment variables
 ```
 
-## License
+---
 
-Proprietary — agendalix.com
+## Philosophy
+
+Agendalix treats **time as a finite resource** and **scheduling as a negotiation problem**. The system does not just store appointments; it actively reduces no-shows, recovers lost revenue, and removes friction from the conversation between business and customer.
+
+---
+
+**Proprietary — agendalix.com**
