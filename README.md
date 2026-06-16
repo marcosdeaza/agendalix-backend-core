@@ -1,4 +1,5 @@
-![Agendalix Landing](https://raw.githubusercontent.com/marcosdeaza/agendalix-backend-core/main/.github/assets/screenshot-panel.png)
+![Agendalix Landing](https://raw.githubusercontent.com/marcosdeaza/agendalix-backend-core/main/.github/assets/screenshot-landing.webp)
+![Agendalix Panel](https://raw.githubusercontent.com/marcosdeaza/agendalix-backend-core/main/.github/assets/screenshot-panel.webp)
 
 # agendalix-backend-core
 
