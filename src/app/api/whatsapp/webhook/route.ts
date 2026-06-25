@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import { parseEvolutionWebhook, sendWhatsAppText, toWhatsAppFormat } from "@/lib/whatsapp";
+import { parseEvolutionWebhook, sendWhatsAppText, toWhatsAppFormat, transcribeAudio } from "@/lib/whatsapp";
 import { rateLimit } from "@/lib/rate-limit";
 import {
   deepseekChat,
@@ -104,6 +104,17 @@ export async function POST(req: Request) {
   }
   if (!negocio.activo) {
     return NextResponse.json({ ok: true, reason: "negocio_inactivo" });
+  }
+
+  // Transcribe audio silently — the user only sees the final AI reply,
+  // never a "transcribing…" notice or the transcript itself.
+  if (incoming.isAudio) {
+    const transcript = await transcribeAudio(
+      incoming.rawEvolutionData,
+      `neg_${negocio.id}`,
+    );
+    if (!transcript) return NextResponse.json({ ok: true, reason: "audio_skip" });
+    incoming.text = transcript;
   }
 
   const [{ data: cfgRow }, cliente] = await Promise.all([

@@ -9,8 +9,9 @@ export type WhatsAppIncoming = {
   messageId: string;
   phoneNumberId: string;
   timestamp: number;
-  // Full original JID preserved so replies can be routed correctly (e.g. @lid privacy JIDs)
   replyJid?: string;
+  isAudio?: boolean;
+  rawEvolutionData?: unknown; // needed to fetch audio via Evolution API
 };
 
 // ─── Evolution API helpers ───────────────────────────────────────────────────
@@ -133,7 +134,12 @@ export function parseEvolutionWebhook(body: unknown): WhatsAppIncoming | null {
     event?: string;
     data?: {
       key?: { remoteJid?: string; id?: string; fromMe?: boolean };
-      message?: { conversation?: string; extendedTextMessage?: { text?: string } };
+      message?: {
+        conversation?: string;
+        extendedTextMessage?: { text?: string };
+        audioMessage?: unknown;
+        pttMessage?: unknown;
+      };
       messageTimestamp?: number;
       instanceId?: string;
     };
@@ -147,25 +153,26 @@ export function parseEvolutionWebhook(body: unknown): WhatsAppIncoming | null {
 
   let from: string;
   if (jid.endsWith("@lid")) {
-    // @lid is a WhatsApp privacy JID used on modern iOS/Android.
-    // The real phone may be in the participant field (e.g. "34622437976@s.whatsapp.net").
     if (participant && !participant.endsWith("@lid")) {
       from = participant.split("@")[0];
     } else {
-      // participant is absent: use the @lid number itself as the identifier.
-      // Evolution API can route outbound replies using the full @lid JID.
       from = jid.split("@")[0];
     }
   } else {
     from = jid.split("@")[0];
   }
 
+  if (!from) return null;
+
   const text =
     b.data?.message?.conversation ??
     b.data?.message?.extendedTextMessage?.text ??
     "";
 
-  if (!from || !text) return null;
+  const isAudio = !!(b.data?.message?.audioMessage || b.data?.message?.pttMessage);
+
+  // Drop messages that are neither text nor audio
+  if (!text && !isAudio) return null;
 
   return {
     from,
@@ -174,6 +181,7 @@ export function parseEvolutionWebhook(body: unknown): WhatsAppIncoming | null {
     phoneNumberId: b.data?.instanceId ?? "",
     timestamp: b.data?.messageTimestamp ?? Math.floor(Date.now() / 1000),
     replyJid: jid,
+    ...(isAudio ? { isAudio: true, rawEvolutionData: b.data } : {}),
   };
 }
 
@@ -224,4 +232,71 @@ export function normalizePhone(raw: string): string {
   if (cleaned.startsWith("00")) return cleaned.slice(2);
   if (cleaned.length === 9) return "34" + cleaned;
   return cleaned;
+}
+
+// ─── Groq Whisper transcription ──────────────────────────────────────────────
+
+/**
+ * Downloads an audio message via Evolution API and transcribes it with Groq
+ * Whisper. Returns the transcript text, or null if anything fails.
+ * The caller should treat a null result as a silent drop (no reply to user).
+ */
+export async function transcribeAudio(
+  rawEvolutionData: unknown,
+  instanceName: string,
+): Promise<string | null> {
+  const groqKey = process.env.GROQ_API_KEY;
+  if (!groqKey) {
+    console.error("[groq] GROQ_API_KEY not set");
+    return null;
+  }
+
+  try {
+    // 1. Fetch audio base64 from Evolution API
+    const media = (await evoRequest(
+      `/chat/getBase64FromMediaMessage/${instanceName}`,
+      "POST",
+      { message: rawEvolutionData },
+    )) as { base64?: string; mimetype?: string } | null;
+
+    if (!media?.base64) {
+      console.error("[groq] Evolution API returned no base64 for audio");
+      return null;
+    }
+
+    // 2. Send to Groq Whisper — no ffmpeg needed, Groq accepts ogg/opus natively
+    const buffer = Buffer.from(media.base64, "base64");
+    const mimetype = media.mimetype?.split(";")[0]?.trim() || "audio/ogg";
+    const ext = mimetype.includes("mp4") ? "mp4"
+      : mimetype.includes("webm") ? "webm"
+      : mimetype.includes("mpeg") ? "mp3"
+      : "ogg";
+
+    const blob = new Blob([buffer], { type: mimetype });
+    const form = new FormData();
+    form.append("file", blob, `audio.${ext}`);
+    form.append("model", "whisper-large-v3");
+    form.append("language", "es");
+    form.append("response_format", "text");
+
+    const groqRes = await fetch(
+      "https://api.groq.com/openai/v1/audio/transcriptions",
+      {
+        method: "POST",
+        headers: { Authorization: `Bearer ${groqKey}` },
+        body: form,
+      },
+    );
+
+    if (!groqRes.ok) {
+      console.error("[groq] Whisper error", groqRes.status, await groqRes.text());
+      return null;
+    }
+
+    const transcript = (await groqRes.text()).trim();
+    return transcript || null;
+  } catch (err) {
+    console.error("[groq] transcribeAudio exception", err);
+    return null;
+  }
 }
